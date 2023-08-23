@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <RootNamespace>NT_File_Reader</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+	  <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="7.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="api-ms-win-core-heap-l1-1-0.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="explorer.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="kernel32.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="ntdll.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="USBXHCI.SYS">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="user32.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="win32u.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkAssemblies Remove="api-ms-win-core-heap-l1-1-0.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PrivateSdkAssemblies Remove="api-ms-win-core-heap-l1-1-0.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkAssemblies Remove="win32u.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PrivateSdkAssemblies Remove="win32u.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkAssemblies Remove="ntdll.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PrivateSdkAssemblies Remove="ntdll.dll" />
+  </ItemGroup>
+
+</Project>
