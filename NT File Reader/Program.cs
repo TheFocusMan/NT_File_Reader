@@ -1,214 +1,143 @@
-﻿using System.IO.MemoryMappedFiles;
+﻿using System.CommandLine;
 using System.Reflection.PortableExecutable;
-
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 namespace NT_File_Reader
 {
-    public static unsafe class Extentions
-    {
-        public const ushort IMAGE_DOS_SIGNATURE = 0x5A4D; //MZ
-        public const ushort IMAGE_OS2_SIGNATURE = 0x454E;     // NE
-        public const ushort IMAGE_OS2_SIGNATURE_LE = 0x454C;   // LE
-        public const ushort IMAGE_VXD_SIGNATURE = 0x454C;   // LE
-        public const ushort IMAGE_NT_SIGNATURE = 0x00004550; // PE00
-
-        public static NtHeaders64* GetNtHeader64(byte* ptr)
-        {
-            DOSHeader* header = (DOSHeader*)ptr;
-
-            if (header->e_magic != IMAGE_DOS_SIGNATURE)
-                return null;
-
-            NtHeaders64* nt_header = (NtHeaders64*)(ptr + header->e_lfanew);
-            if (nt_header->Signature != IMAGE_NT_SIGNATURE || nt_header->OptionalHeader.Magic != 0x20b)
-                return null;
-
-            return nt_header;
-        }
-
-        public static NtHeaders32* GetNtHeader32(byte* ptr)
-        {
-            DOSHeader* header = (DOSHeader*)ptr;
-
-            if (header->e_magic != IMAGE_DOS_SIGNATURE)
-                return null;
-
-            NtHeaders32* nt_header = (NtHeaders32*)(ptr + header->e_lfanew);
-            if (nt_header->Signature != IMAGE_NT_SIGNATURE || nt_header->OptionalHeader.Magic != 0x10b)
-                return null;
-
-            return nt_header;
-        }
-
-        public static NtHeaders32* GetNtHeaderNoChecks(byte* ptr)
-        {
-            DOSHeader* header = (DOSHeader*)ptr;
-
-            if (header->e_magic != IMAGE_DOS_SIGNATURE)
-                return null;
-
-            NtHeaders32* nt_header = (NtHeaders32*)(ptr + header->e_lfanew);
-            return nt_header;
-        }
-
-        public static unsafe SectionHeader* ResolveSectionHeader(SectionHeader* section_header, uint RVA, uint numberofsections)
-        {
-            for (int i = 1; i <= numberofsections; i++, section_header++)
-            {
-                //Console.WriteLine("Section Header: Section Name {0}", FromAscii(section_header->Name, 8));
-
-                if (RVA >= section_header->VirtualAddress && RVA < section_header->VirtualAddress + section_header->PhysicalAddress_VirtualSize)
-                {
-                    return section_header;
-                }
-                //section_header += (uint)sizeof(PIMAGE_SECTION_HEADER);
-            }
-            return null;
-        }
-    }
-
     internal class Program
     {
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            Console.WriteLine("Enter File To read");
-            string? path = Console.ReadLine();
+            Argument<FileInfo> Argfile = new Argument<FileInfo>("file")
+            {
+                Description = "File to read"
+            };
+            RootCommand rootCommand = new("NT File display details");
+            rootCommand.Arguments.Add(Argfile);
+            rootCommand.SetAction(parseResult =>
+            {
+                FileInfo? parsedFile = parseResult.GetValue(Argfile);
+                ReadFile(parsedFile!.FullName);
+                return 0;
+            });
+            ParseResult parseResult = rootCommand.Parse(args);
+            return parseResult.Invoke();
+        }
+
+        static void ReadFile(string file)
+        {
             try
             {
-                using MemoryMappedFile memoryMapped = MemoryMappedFile.CreateFromFile(path, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);
-                using var viewstream = memoryMapped.CreateViewStream();
-                unsafe
+                using CMemoryMappedFile memoryMapped = new CMemoryMappedFile(Path.GetFullPath(file), "MapNT");
+                using MemoryMappedView memoryMappedView = memoryMapped.GetView(FileMapAccess.FileMapAllAccess);
+
+                Console.WriteLine(CenterText("Begin Of File", 30, '*'));
+
+                ref DOSHeader header = ref memoryMappedView.As<DOSHeader>();
+                // בדיקות של הקובץ האם זה להרצה
+                if (!(header.e_magic == Extentions.IMAGE_DOS_SIGNATURE))
+                    throw new Exception("Invliad exe");
+
+                ref NtHeaders64 nt_header = ref memoryMappedView.As<NtHeaders64>(header.e_lfanew);
+                if (!(nt_header.Signature == Extentions.IMAGE_NT_SIGNATURE))
+                    throw new Exception("Invliad exe");
+
+                using AllocatedPointer pointer = new(nt_header.OptionalHeader.SizeOfImage);
+
+                Unsafe.CopyBlockUnaligned(ref pointer[0], ref memoryMappedView.handle, nt_header.OptionalHeader.SizeOfHeaders);
+                Console.WriteLine("Sections:");
+                for (int i = 0; i < nt_header.FileHeader.NumberOfSections; i++)
                 {
-                    byte* ptr = null;
-                    Console.WriteLine("******** Begin Of File ********");
-
-
-                    viewstream.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
-                    DOSHeader* header = (DOSHeader*)ptr;
-                    // בדיקות של הקובץ האם זה להרצה
-                    if (!(header->e_magic == Extentions.IMAGE_DOS_SIGNATURE))
-                        throw new Exception("Invliad exe");
-
-                    NtHeaders64* nt_header = (NtHeaders64*)(ptr + header->e_lfanew);
-                    if (!(nt_header->Signature == Extentions.IMAGE_NT_SIGNATURE))
-                        throw new Exception("Invliad exe");
-#pragma warning disable CS0436 // Type conflicts with imported type
-                    SectionHeader* section_header = (SectionHeader*)((ulong)nt_header + (ulong)sizeof(NtHeaders64));
-                    uint numberofsections = nt_header->FileHeader.NumberOfSections;
-                    if (nt_header->OptionalHeader.CertificateTable.Size > 0)
-                    {
-                        Console.WriteLine("********  Nt Cer File  ********");
-                        SectionHeader* CertSection = Extentions.ResolveSectionHeader(section_header, nt_header->OptionalHeader.CertificateTable.VirtualAddress, numberofsections);
-                        WinCertificate* cer_table_offset = (WinCertificate*)(ptr + nt_header->OptionalHeader.CertificateTable.VirtualAddress);
-                        return;
-                    }
-                    if (nt_header->OptionalHeader.ImportTable.Size > 0)
-                    {
-                        Console.WriteLine("********  Nt Imports  ********");
-                        SectionHeader* import_section = Extentions.ResolveSectionHeader(section_header, nt_header->OptionalHeader.ImportTable.VirtualAddress, numberofsections);
-
-                        ulong import_table_offset = (ulong)(ptr + import_section->PointerToRawData);
-                        //imageBaseAddress + pointerToRawDataOfTheSectionContainingRVAofInterest + (RVAofInterest - SectionContainingRVAofInterest.VirtualAddress
-
-                        ImportDescriptor* importImageDescriptor = (ImportDescriptor*)(AddIntOrLong(import_table_offset, (int)(nt_header->OptionalHeader.ImportTable.VirtualAddress - import_section->VirtualAddress)));
-                        //DLL Imports
-                        for (; importImageDescriptor->Name != 0; importImageDescriptor++)
-                        {
-                            byte* Imported_DLL = (byte*)AddIntOrLong(import_table_offset, (int)(importImageDescriptor->Name - import_section->VirtualAddress));
-                            Console.WriteLine("\tImported DLLs: {0}", FromAscii(Imported_DLL, strlen(Imported_DLL)));
-                            uint thunk = (importImageDescriptor->OriginalFirstThunk == 0 ? importImageDescriptor->FirstThunk : importImageDescriptor->OriginalFirstThunk);
-                            ThunkData64* thunkData = (ThunkData64*)(import_table_offset + (thunk - import_section->VirtualAddress));
-                            // dll exported functions
-                            for (; thunkData->AddressOfData != 0; thunkData++)
-                            {
-                                //a cheap and probably non-reliable way of checking if the function is imported via its ordinal number ¯\_(ツ)_/¯
-                                if ((thunkData->AddressOfData & (1ul << 63)) != 0)
-                                {
-                                    //show lower bits of the value to get the ordinal ¯\_(ツ)_/¯
-                                    Console.WriteLine("\t\tOrdinal: {0}", (ushort)thunkData->AddressOfData);
-                                }
-                                else
-                                {
-                                    byte* print = (byte*)(import_table_offset + (thunkData->ForwarderString - import_section->VirtualAddress + 2));
-                                    Console.WriteLine("\t\t{0}", FromAscii(print, strlen(print)));
-                                }
-                            }
-                        }
-                    }
-                    if (nt_header->OptionalHeader.ExportTable.Size > 0)
-                    {
-                        Console.WriteLine("********  Nt Exports  ********");
-                        // Dll Exports
-
-                        SectionHeader* exportSection = Extentions.ResolveSectionHeader(section_header, nt_header->OptionalHeader.ExportTable.VirtualAddress, numberofsections);
-                        ulong export_table_offset = (ulong)(ptr + exportSection->PointerToRawData);
-
-                        ExportDirectory* imageExportDirectory = (ExportDirectory*)(AddIntOrLong(export_table_offset, (int)(nt_header->OptionalHeader.ExportTable.VirtualAddress - exportSection->VirtualAddress)));
-                        uint* exportAddressTable = (uint*)(ptr + imageExportDirectory->AddressOfFunctions);
-                        ushort* nameOrdinalsPointer = (ushort*)(ptr + imageExportDirectory->AddressOfNameOrdinals);
-                        uint* exportNamePointerTable = (uint*)(ptr + imageExportDirectory->AddressOfNames);
-
-                        for (int nameIndex = 0; nameIndex < imageExportDirectory->NumberOfNames; nameIndex++)
-                        {
-                            byte* name = ptr + exportNamePointerTable[nameIndex];
-                            Console.WriteLine("\t{0}", FromAscii(name, strlen(name)));
-                            ushort ordinal = nameOrdinalsPointer[nameIndex];
-                            //Console.WriteLine("\tProc Address:0x{0:X}", (ulong)ptr + exportAddressTable[ordinal]);
-                        }
-                    }
-
-                    Console.WriteLine("********  End Of File  ********");
-                    viewstream.SafeMemoryMappedViewHandle.ReleasePointer();
+                    ref SectionHeader section = ref pointer.As<SectionHeader>((nuint)(header.e_lfanew + Unsafe.SizeOf<NtHeaders64>() + i * Unsafe.SizeOf<SectionHeader>()));
+                    Console.WriteLine("\t{0}", Encoding.ASCII.GetString(MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<SectionHeader, byte>(ref section), 8)));
+                    Unsafe.CopyBlockUnaligned(ref pointer[section.VirtualAddress], ref memoryMappedView[section.PointerToRawData], section.SizeOfRawData);
                 }
+#pragma warning disable CS0436 // Type conflicts with imported type
+                if (nt_header.OptionalHeader.ExportTable.Size > 0)
+                {
+                    Console.WriteLine(CenterText("Nt Exports", 30, '*'));
+
+                    ref ExportDirectory imageExportDirectory = ref pointer.As<ExportDirectory>(nt_header.OptionalHeader.ExportTable.VirtualAddress);
+                    ref uint exportAddressTable = ref pointer.As<uint>(imageExportDirectory.AddressOfFunctions);
+                    ref ushort nameOrdinalsPointer = ref pointer.As<ushort>(imageExportDirectory.AddressOfNameOrdinals);
+                    ref uint exportNamePointerTable = ref pointer.As<uint>(imageExportDirectory.AddressOfNames);
+
+                    for (int nameIndex = 0; nameIndex < imageExportDirectory.NumberOfNames; nameIndex++)
+                    {
+                        ref byte name = ref pointer[Unsafe.Add(ref exportNamePointerTable, nameIndex)];
+                        Console.WriteLine("\t{0}", Encoding.ASCII.GetString(new ReadOnlySafePointer<byte>(ref name).ToStringWithNullTerminator()));
+                        ushort ordinal = Unsafe.Add(ref nameOrdinalsPointer, nameIndex);
+                        unsafe
+                        {
+                            Console.WriteLine("\tProc Address:0x{0:X4}", (nuint)Unsafe.AsPointer(ref pointer[Unsafe.Add(ref exportAddressTable, ordinal)]));
+                        }
+                    }
+                }
+                if (nt_header.OptionalHeader.ImportTable.Size > 0)
+                {
+                    Console.WriteLine(CenterText("Nt Imports", 30, '*'));
+                    ref ImportDescriptor importImageDescriptor = ref pointer.As<ImportDescriptor>(nt_header.OptionalHeader.ImportTable.VirtualAddress);
+                    //DLL Imports
+                    for (; importImageDescriptor.Name != 0; importImageDescriptor = ref Unsafe.Add(ref importImageDescriptor, 1))
+                    {
+                        ref byte Imported_DLL = ref pointer[importImageDescriptor.Name];
+                        Console.WriteLine("\tImported DLLs: {0}", Encoding.ASCII.GetString(new ReadOnlySafePointer<byte>(ref Imported_DLL).ToStringWithNullTerminator()));
+                        uint thunk = (importImageDescriptor.OriginalFirstThunk == 0 ? importImageDescriptor.FirstThunk : importImageDescriptor.OriginalFirstThunk);
+                        ref ThunkData64 thunkData = ref (pointer.As<ThunkData64>(thunk));
+                        // dll exported functions
+                        for (; thunkData.AddressOfData != 0; thunkData = ref Unsafe.Add(ref thunkData, 1))
+                        {
+                            //a cheap and probably non-reliable way of checking if the function is imported via its ordinal number ¯\_(ツ)_/¯
+                            if ((thunkData.AddressOfData & (1ul << 63)) != 0)
+                            {
+                                //show lower bits of the value to get the ordinal ¯\_(ツ)_/¯
+                                Console.WriteLine("\t\tOrdinal: {0}", (ushort)thunkData.Ordinal);
+                            }
+                            else
+                            {
+                                ref byte print = ref pointer[(nuint)thunkData.ForwarderString + 2];
+                                Console.WriteLine("\t\t{0}", Encoding.ASCII.GetString(new ReadOnlySafePointer<byte>(ref Imported_DLL).ToStringWithNullTerminator()));
+                            }
+                            thunkData.Function = 0; // Resolve Function
+                        }
+                    }
+                }
+                if (nt_header.OptionalHeader.CertificateTable.Size > 0)
+                {
+                    Console.WriteLine(CenterText("Nt Certificate File", 30, '*'));
+                    ref WinCertificate cer_table_offset = ref pointer.As<WinCertificate>(nt_header.OptionalHeader.CertificateTable.VirtualAddress);
+                    Console.WriteLine($"Certificate Type:{cer_table_offset.wCertificateType}");
+                    if (cer_table_offset.wCertificateType == 2)
+                    {
+                        ref byte data = ref cer_table_offset.bCertificate;
+                        data = ref SignedDataExtentions.GetAsn1Header(ref data, out byte tag, out int length);
+                        Console.WriteLine($"\t {tag:X2}.{length}");
+                        data = ref SignedDataExtentions.GetAsn1Header(ref data, out tag, out length);
+                        Console.WriteLine($"\t {tag:X2}.{length}");
+                    }
+                }
+                if (nt_header.OptionalHeader.TLSTable.Size > 0)
+                {
+                    Console.WriteLine(CenterText("Thread Local Storage", 30, '*'));
+                }
+                Console.WriteLine(CenterText("End Of File", 30, '*'));
 
 #pragma warning restore CS0436 // Type conflicts with imported type
             }
             catch (Exception e)
             {
-                Console.WriteLine("E Efshar To Read File Error:{0}", e.Message);
+                Console.WriteLine("Unable To Read File Error:{0}", e);
             }
-            Console.WriteLine("Key.....");
-            Console.ReadKey();
         }
 
-        private static ushort CharCombine(char left, char right)
+        public static string CenterText(string text, int width, char padChar)
         {
-            return (ushort)(left | right << 8);
-        }
-
-        private static void LoadLibary(string path)
-        {
-
-        }
-
-        private static ulong AddIntOrLong(ulong value, long add)
-        {
-            if (add < 0)
-                return value - (ulong)-add;
-            else return value + (ulong)add;
-        }
-        private static unsafe string FromAscii(byte* ascii, int length)
-        {
-            string str = "";
-            for (int i = 0; i < length; i++)
-            {
-                str += (char)ascii[i];
-            }
-            return str;
-        }
-        public static unsafe int strlen(byte* s)
-        {
-            if (s == null)
-            {
-                // Handle the error here
-            }
-
-            int length = 0;
-
-            byte* pEnd = s;
-            while (*pEnd++ != '\0') ;
-            length = (int)((pEnd - s) - 1);
-
-            return length;
+            if (text.Length >= width) return text;
+            string ret = $"  {text}  ";
+            width += 4;
+            int leftPadding = (width + ret.Length) / 2;
+            return ret.PadLeft(leftPadding, padChar).PadRight(width, padChar);
         }
     }
 }

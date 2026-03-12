@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "NT File Reader": {
+      "commandName": "Project",
+      "commandLineArgs": "api-ms-win-core-rtlsupport-l1-2-2.dll"
+    }
+  }
+}

@@ -3,33 +3,33 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>NT_File_Reader</RootNamespace>
+    <RootNamespace>NT_File_Executer</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	  <PublishAot>true</PublishAot>
-	  <AssemblyName>ntexedisp</AssemblyName>
-	  <AssemblyTitle>NT File reader</AssemblyTitle>
+    <AssemblyTitle>NT File executer</AssemblyTitle>
+    <AssemblyName>ntexerun</AssemblyName>
+    <PublishAot>True</PublishAot>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="PEFileFlags.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="System\Reflection\PortableExecutable\PEFileFlags.cs" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="ucrtbase.dll">
+    <ProjectReference Include="..\NT File Reader\NT File Reader.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="sfc.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="zlib1.dll">
+    <None Update="TestApplication.exe">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TestDesptopApplication.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
 </Project>

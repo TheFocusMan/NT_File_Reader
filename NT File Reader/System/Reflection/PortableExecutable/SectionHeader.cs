@@ -1,11 +1,12 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 
 namespace NT_File_Reader
 {
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct SectionHeader
     {
-        public fixed byte Name[8];
+        public ulong Name;
         public uint PhysicalAddress_VirtualSize;
         public uint VirtualAddress;
         public uint SizeOfRawData;
@@ -14,6 +15,6 @@ namespace NT_File_Reader
         public uint PointerToLineNumbers;
         public ushort NumberOfRelocations;
         public ushort NumberOfLineNumbers;
-        public uint Characteristics;
+        public SectionCharacteristics Characteristics;
     }
 }

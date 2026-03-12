@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "NT File Executer": {
+      "commandName": "Project",
+      "commandLineArgs": "TestDesptopApplication.exe",
+      "nativeDebugging": true
+    }
+  }
+}

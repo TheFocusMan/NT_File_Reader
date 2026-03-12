@@ -3,9 +3,9 @@
 namespace System.Reflection.PortableExecutable
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct OptionalHeaders64
+    public struct OptionalHeaders32
     {
-        public ushort Magic;
+        public PEMagic Magic;
         public byte MajorLinkerVersion;
         public byte MinorLinkerVersion;
         public uint SizeOfCode;
@@ -13,7 +13,8 @@ namespace System.Reflection.PortableExecutable
         public uint SizeOfUninitializedData;
         public uint AddressOfEntryPoint;
         public uint BaseOfCode;
-        public ulong ImageBase;
+        public uint BaseOfData;
+        public uint ImageBase;
         public uint SectionAlignment;
         public uint FileAlignment;
         public ushort MajorOperatingSystemVersion;
@@ -27,11 +28,11 @@ namespace System.Reflection.PortableExecutable
         public uint SizeOfHeaders;
         public uint CheckSum;
         public SubSystemType Subsystem;
-        public DllCharacteristicsType DllCharacteristics;
-        public ulong SizeOfStackReserve;
-        public ulong SizeOfStackCommit;
-        public ulong SizeOfHeapReserve;
-        public ulong SizeOfHeapCommit;
+        public DllCharacteristics DllCharacteristics;
+        public uint SizeOfStackReserve;
+        public uint SizeOfStackCommit;
+        public uint SizeOfHeapReserve;
+        public uint SizeOfHeapCommit;
         public uint LoaderFlags;
         public uint NumberOfRvaAndSizes;
         public DataDirectory ExportTable;

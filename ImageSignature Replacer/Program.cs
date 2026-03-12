@@ -25,8 +25,8 @@ unsafe
     fixed (byte* ptrRead = readFile)
     fixed (byte* ptrWrite = writeFile)
     {
-        NtHeaders32* readHeader = Extentions.GetNtHeaderNoChecks(ptrRead);
-        NtHeaders32* WriteHeader = Extentions.GetNtHeaderNoChecks(ptrWrite);
+        NtHeaders32* readHeader = GetNtHeaderNoChecks(ptrRead);
+        NtHeaders32* WriteHeader = GetNtHeaderNoChecks(ptrWrite);
 
         if (readHeader == null || WriteHeader == null)
         {
@@ -82,6 +82,17 @@ unsafe
     End:;
 
     }
+}
+
+static unsafe NtHeaders32* GetNtHeaderNoChecks(byte* ptr)
+{
+    DOSHeader* header = (DOSHeader*)ptr;
+
+    if (header->e_magic != Extentions.IMAGE_DOS_SIGNATURE)
+        return null;
+
+    NtHeaders32* nt_header = (NtHeaders32*)(ptr + header->e_lfanew);
+    return nt_header;
 }
 
 static unsafe DataDirectory* GetDataDirectories(NtHeaders32* header)

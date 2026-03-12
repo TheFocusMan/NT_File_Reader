@@ -3,7 +3,7 @@
 namespace System.Reflection.PortableExecutable
 {
     [StructLayout(LayoutKind.Sequential)]
-    unsafe struct DOSHeader
+    public unsafe struct DOSHeader
     {
         public ushort e_magic;              // Magic number
         public ushort e_cblp;               // Bytes on last page of file
@@ -23,6 +23,6 @@ namespace System.Reflection.PortableExecutable
         public ushort e_oemid;              // OEM identifier (for e_oeminfo)
         public ushort e_oeminfo;            // OEM information; e_oemid specific
         public fixed ushort e_res2[10];     // Reserved words
-        public int e_lfanew;                // File address of new exe header
+        public uint e_lfanew;                // File address of new exe header
     }
 }

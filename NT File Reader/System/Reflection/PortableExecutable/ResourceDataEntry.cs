@@ -3,9 +3,11 @@
 namespace System.Reflection.PortableExecutable
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct DataDirectory
+    public struct ResourceDataEntry
     {
-        public uint VirtualAddress;
+        public uint OffsetToData;
         public uint Size;
+        public uint CodePage;
+        public uint Reserved;
     }
 }

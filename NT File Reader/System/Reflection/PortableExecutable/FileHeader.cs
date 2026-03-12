@@ -5,7 +5,7 @@ namespace System.Reflection.PortableExecutable
     [StructLayout(LayoutKind.Sequential)]
     public struct FileHeader
     {
-        public ushort Machine;
+        public Machine Machine;
         public ushort NumberOfSections;
         public uint TimeDateStamp;
         public uint PointerToSymbolTable;
